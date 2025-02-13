@@ -1,5 +1,5 @@
 [package]
-name = "store"
+name = "fs-proxy"
 version = "0.1.0"
 edition = "2021"
 
@@ -20,4 +20,4 @@ strip = true
 lto = true
 
 [package.metadata.component]
-package = "ntwk:key-value-actor"
+package = "ntwk:fx-proxy-actor"
