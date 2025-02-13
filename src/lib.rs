@@ -2,7 +2,9 @@ mod bindings;
 
 use bindings::exports::ntwk::theater::actor::Guest as ActorGuest;
 use bindings::exports::ntwk::theater::message_server_client::Guest as MessageServerClient;
-use bindings::ntwk::theater::filesystem::{read_file, write_file, list_files, create_dir, delete_file, delete_dir};
+use bindings::ntwk::theater::filesystem::{
+    create_dir, delete_dir, delete_file, list_files, read_file, write_file,
+};
 use bindings::ntwk::theater::types::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -29,7 +31,7 @@ struct FsResponse {
 struct Component;
 
 impl ActorGuest for Component {
-    fn init() -> Vec<u8> {
+    fn init(_data: Option<Vec<u8>>) -> Vec<u8> {
         let state = State {
             permissions: vec!["read".to_string()], // Default to read-only
         };
@@ -121,7 +123,7 @@ impl MessageServerClient for Component {
         let state: State = serde_json::from_slice(&state).unwrap();
         let request: FsRequest = match serde_json::from_slice(&message) {
             Ok(req) => req,
-            Err(_) => return state,
+            Err(_) => return serde_json::to_vec(&state).unwrap(),
         };
 
         // Handle operations that don't need responses
@@ -156,3 +158,4 @@ impl MessageServerClient for Component {
 }
 
 bindings::export!(Component with_types_in bindings);
+
