@@ -3,6 +3,7 @@ mod bindings;
 use bindings::exports::ntwk::theater::actor::Guest as ActorGuest;
 use bindings::exports::ntwk::theater::message_server_client::Guest as MessageServerClient;
 use bindings::ntwk::theater::filesystem::{read_file, write_file, list_files, create_dir, delete_file, delete_dir};
+use bindings::ntwk::theater::types::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -37,7 +38,7 @@ impl ActorGuest for Component {
 }
 
 impl MessageServerClient for Component {
-    fn handle(message: Vec<u8>, state: Vec<u8>) -> (Vec<u8>, Vec<u8>) {
+    fn handle_request(message: Json, state: Json) -> (Json, Json) {
         let state: State = serde_json::from_slice(&state).unwrap();
         let request: FsRequest = match serde_json::from_slice(&message) {
             Ok(req) => req,
@@ -54,6 +55,7 @@ impl MessageServerClient for Component {
             }
         };
 
+        // Handle operations that need responses
         let response = match request.operation.as_str() {
             "read-file" => {
                 if !state.permissions.contains(&"read".to_string()) {
@@ -80,35 +82,6 @@ impl MessageServerClient for Component {
                     }
                 }
             }
-            "write-file" => {
-                if !state.permissions.contains(&"write".to_string()) {
-                    FsResponse {
-                        success: false,
-                        data: None,
-                        error: Some("Write permission denied".to_string()),
-                    }
-                } else {
-                    match request.content {
-                        Some(content) => match write_file(&request.path, &content) {
-                            Ok(_) => FsResponse {
-                                success: true,
-                                data: None,
-                                error: None,
-                            },
-                            Err(e) => FsResponse {
-                                success: false,
-                                data: None,
-                                error: Some(format!("Failed to write file: {}", e)),
-                            },
-                        },
-                        None => FsResponse {
-                            success: false,
-                            data: None,
-                            error: Some("No content provided for write operation".to_string()),
-                        },
-                    }
-                }
-            }
             "list-files" => {
                 if !state.permissions.contains(&"read".to_string()) {
                     FsResponse {
@@ -131,76 +104,10 @@ impl MessageServerClient for Component {
                     }
                 }
             }
-            "create-dir" => {
-                if !state.permissions.contains(&"write".to_string()) {
-                    FsResponse {
-                        success: false,
-                        data: None,
-                        error: Some("Write permission denied".to_string()),
-                    }
-                } else {
-                    match create_dir(&request.path) {
-                        Ok(_) => FsResponse {
-                            success: true,
-                            data: None,
-                            error: None,
-                        },
-                        Err(e) => FsResponse {
-                            success: false,
-                            data: None,
-                            error: Some(format!("Failed to create directory: {}", e)),
-                        },
-                    }
-                }
-            }
-            "delete-file" => {
-                if !state.permissions.contains(&"delete".to_string()) {
-                    FsResponse {
-                        success: false,
-                        data: None,
-                        error: Some("Delete permission denied".to_string()),
-                    }
-                } else {
-                    match delete_file(&request.path) {
-                        Ok(_) => FsResponse {
-                            success: true,
-                            data: None,
-                            error: None,
-                        },
-                        Err(e) => FsResponse {
-                            success: false,
-                            data: None,
-                            error: Some(format!("Failed to delete file: {}", e)),
-                        },
-                    }
-                }
-            }
-            "delete-dir" => {
-                if !state.permissions.contains(&"delete".to_string()) {
-                    FsResponse {
-                        success: false,
-                        data: None,
-                        error: Some("Delete permission denied".to_string()),
-                    }
-                } else {
-                    match delete_dir(&request.path) {
-                        Ok(_) => FsResponse {
-                            success: true,
-                            data: None,
-                            error: None,
-                        },
-                        Err(e) => FsResponse {
-                            success: false,
-                            data: None,
-                            error: Some(format!("Failed to delete directory: {}", e)),
-                        },
-                    }
-                }
-            }
             _ => FsResponse {
                 success: false,
                 data: None,
-                error: Some(format!("Unknown operation: {}", request.operation)),
+                error: Some("Operation not supported for request type".to_string()),
             },
         };
 
@@ -208,6 +115,43 @@ impl MessageServerClient for Component {
             serde_json::to_vec(&response).unwrap(),
             serde_json::to_vec(&state).unwrap(),
         )
+    }
+
+    fn handle_send(message: Json, state: Json) -> Json {
+        let state: State = serde_json::from_slice(&state).unwrap();
+        let request: FsRequest = match serde_json::from_slice(&message) {
+            Ok(req) => req,
+            Err(_) => return state,
+        };
+
+        // Handle operations that don't need responses
+        match request.operation.as_str() {
+            "write-file" => {
+                if state.permissions.contains(&"write".to_string()) {
+                    if let Some(content) = request.content {
+                        let _ = write_file(&request.path, &content);
+                    }
+                }
+            }
+            "create-dir" => {
+                if state.permissions.contains(&"write".to_string()) {
+                    let _ = create_dir(&request.path);
+                }
+            }
+            "delete-file" => {
+                if state.permissions.contains(&"delete".to_string()) {
+                    let _ = delete_file(&request.path);
+                }
+            }
+            "delete-dir" => {
+                if state.permissions.contains(&"delete".to_string()) {
+                    let _ = delete_dir(&request.path);
+                }
+            }
+            _ => {}
+        }
+
+        serde_json::to_vec(&state).unwrap()
     }
 }
 
