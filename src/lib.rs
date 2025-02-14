@@ -132,6 +132,111 @@ impl MessageServerClient for Component {
                     }
                 }
             }
+            "write-file" => {
+                log(&format!("Writing file: {}", request.path));
+                if !state.permissions.contains(&"write".to_string()) {
+                    log("Write permission denied");
+                    FsResponse {
+                        success: false,
+                        data: None,
+                        error: Some("Write permission denied".to_string()),
+                    }
+                } else {
+                    if let Some(content) = request.content {
+                        log("Checks passed");
+                        match write_file(&request.path, &content) {
+                            Ok(_) => FsResponse {
+                                success: true,
+                                data: None,
+                                error: None,
+                            },
+                            Err(e) => FsResponse {
+                                success: false,
+                                data: None,
+                                error: Some(format!("Failed to write file: {}", e)),
+                            },
+                        }
+                    } else {
+                        FsResponse {
+                            success: false,
+                            data: None,
+                            error: Some("Content not provided".to_string()),
+                        }
+                    }
+                }
+            }
+            "create-dir" => {
+                log(&format!("Creating directory: {}", request.path));
+                if !state.permissions.contains(&"write".to_string()) {
+                    log("Write permission denied");
+                    FsResponse {
+                        success: false,
+                        data: None,
+                        error: Some("Write permission denied".to_string()),
+                    }
+                } else {
+                    match create_dir(&request.path) {
+                        Ok(_) => FsResponse {
+                            success: true,
+                            data: None,
+                            error: None,
+                        },
+                        Err(e) => FsResponse {
+                            success: false,
+                            data: None,
+                            error: Some(format!("Failed to create directory: {}", e)),
+                        },
+                    }
+                }
+            }
+            "delete-dir" => {
+                log(&format!("Deleting directory: {}", request.path));
+                if !state.permissions.contains(&"delete".to_string()) {
+                    log("Delete permission denied");
+                    FsResponse {
+                        success: false,
+                        data: None,
+                        error: Some("Delete permission denied".to_string()),
+                    }
+                } else {
+                    match delete_dir(&request.path) {
+                        Ok(_) => FsResponse {
+                            success: true,
+                            data: None,
+                            error: None,
+                        },
+                        Err(e) => FsResponse {
+                            success: false,
+                            data: None,
+                            error: Some(format!("Failed to delete directory: {}", e)),
+                        },
+                    }
+                }
+            }
+            "delete-file" => {
+                log(&format!("Deleting file: {}", request.path));
+                if !state.permissions.contains(&"delete".to_string()) {
+                    log("Delete permission denied");
+                    FsResponse {
+                        success: false,
+                        data: None,
+                        error: Some("Delete permission denied".to_string()),
+                    }
+                } else {
+                    match delete_file(&request.path) {
+                        Ok(_) => FsResponse {
+                            success: true,
+                            data: None,
+                            error: None,
+                        },
+                        Err(e) => FsResponse {
+                            success: false,
+                            data: None,
+                            error: Some(format!("Failed to delete file: {}", e)),
+                        },
+                    }
+                }
+            }
             _ => {
                 log("Operation not supported");
                 FsResponse {
@@ -159,38 +264,8 @@ impl MessageServerClient for Component {
 
         // Handle operations that don't need responses
         match request.operation.as_str() {
-            "write-file" => {
-                log(&format!("Writing file: {}", request.path));
-                if state.permissions.contains(&"write".to_string()) {
-                    if let Some(content) = request.content {
-                        log("Checks passed");
-                        let _ = write_file(&request.path, &content);
-                    }
-                }
-            }
-            "create-dir" => {
-                log(&format!("Creating directory: {}", request.path));
-                if state.permissions.contains(&"write".to_string()) {
-                    log("Checks passed");
-                    let _ = create_dir(&request.path);
-                }
-            }
-            "delete-file" => {
-                log(&format!("Deleting file: {}", request.path));
-                if state.permissions.contains(&"delete".to_string()) {
-                    log("Checks passed");
-                    let _ = delete_file(&request.path);
-                }
-            }
-            "delete-dir" => {
-                log(&format!("Deleting directory: {}", request.path));
-                if state.permissions.contains(&"delete".to_string()) {
-                    log("Checks passed");
-                    let _ = delete_dir(&request.path);
-                }
-            }
             _ => {
-                log("Operation not supported");
+                log("Send messages not supported");
             }
         }
 
