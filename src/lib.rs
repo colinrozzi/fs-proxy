@@ -10,6 +10,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Serialize, Deserialize)]
+struct InitData {
+    permissions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct State {
     permissions: Vec<String>,
 }
@@ -31,9 +36,19 @@ struct FsResponse {
 struct Component;
 
 impl ActorGuest for Component {
-    fn init(_data: Option<Vec<u8>>) -> Vec<u8> {
+    fn init(data: Option<Vec<u8>>) -> Vec<u8> {
+        let init_data: InitData = if let Some(data) = data {
+            serde_json::from_slice(&data).unwrap_or(InitData {
+                permissions: vec!["read".to_string()],
+            })
+        } else {
+            InitData {
+                permissions: vec!["read".to_string()],
+            }
+        };
+
         let state = State {
-            permissions: vec!["read".to_string()], // Default to read-only
+            permissions: init_data.permissions,
         };
         serde_json::to_vec(&state).unwrap()
     }
@@ -158,4 +173,3 @@ impl MessageServerClient for Component {
 }
 
 bindings::export!(Component with_types_in bindings);
-
