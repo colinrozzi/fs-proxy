@@ -25,6 +25,8 @@ struct FsRequest {
     operation: String,
     path: String,
     content: Option<String>,
+    old_text: Option<String>,
+    new_text: Option<String>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -237,6 +239,49 @@ impl MessageServerClient for Component {
                     }
                 }
             }
+            "edit-file" => {
+                log(&format!("Editing file: {}", request.path));
+                if !state.permissions.contains(&"write".to_string()) {
+                    log("Write permission denied");
+                    FsResponse {
+                        success: false,
+                        data: None,
+                        error: Some("Write permission denied".to_string()),
+                    }
+                } else {
+                    match read_file(&request.path) {
+                        Ok(content) => {
+                            let mut content_str = String::from_utf8_lossy(&content).to_string();
+                            if let (Some(old_text), Some(new_text)) = (request.old_text, request.new_text) {
+                                content_str = content_str.replace(&old_text, &new_text);
+                                match write_file(&request.path, &content_str) {
+                                    Ok(_) => FsResponse {
+                                        success: true,
+                                        data: None,
+                                        error: None,
+                                    },
+                                    Err(e) => FsResponse {
+                                        success: false,
+                                        data: None,
+                                        error: Some(format!("Failed to write edited file: {}", e)),
+                                    },
+                                }
+                            } else {
+                                FsResponse {
+                                    success: false,
+                                    data: None,
+                                    error: Some("Both old_text and new_text must be provided".to_string()),
+                                }
+                            }
+                        },
+                        Err(e) => FsResponse {
+                            success: false,
+                            data: None,
+                            error: Some(format!("Failed to read file for editing: {}", e)),
+                        },
+                    }
+                }
+            },
             _ => {
                 log("Operation not supported");
                 FsResponse {
